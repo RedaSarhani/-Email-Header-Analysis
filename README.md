@@ -38,4 +38,62 @@ without relying on visual inspection alone.
 - SendGrid's SPF records contain `149.72.0.0/16`
 <img width="945" height="80" alt="image" src="https://github.com/user-attachments/assets/4e2b612b-adad-49f9-a11f-7b86fc1dff6f" />
 
+**Result:** SPF PASS — the sending IP is authorized by the envelope domain's policy, which delegates authority to SendGrid.
 
+## 2. DKIM Analysis
+
+**Header finding:** Two DKIM signatures present:
+
+- DKIM-Signature: d=namecheap.com; s=s1; 
+- DKIM-Signature: d=sendgrid.info; s=smtpapi; 
+<img width="945" height="399" alt="image" src="https://github.com/user-attachments/assets/e573a87b-86f6-4cfb-ace9-b46dd19c6a1b" />
+
+**Process:**
+- Signature was verified against its domain's public key, retrieved via:
+  `dig txt s1._domainkey.namecheap.com +short`
+- Signatures validated (body hash and header hash matched the public key)
+<img width="945" height="241" alt="image" src="https://github.com/user-attachments/assets/0936b363-4e4e-4082-b15a-712ee7c31b45" />
+
+<img width="861" height="409" alt="image" src="https://github.com/user-attachments/assets/198d36e5-1dc7-4b56-bc07-1ce31208823c" />
+
+**Result:** DKIM PASS for both `namecheap.com` and `sendgrid.info` — confirms the message content wasn't altered in transit and was genuinely signed by holders of both domains' private keys.
+
+## 3. DMARC Analysis
+
+**Header finding:**
+
+dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=namecheap.com
+<img width="945" height="138" alt="image" src="https://github.com/user-attachments/assets/d8dee1fb-cd54-4712-8cde-a7b6a1a46ec3" />
+
+**Process:**
+- Visible From domain: `namecheap.com`
+- DKIM `d=namecheap.com` → matches From domain exactly → **aligned**
+- SPF domain `mailserviceemailout1.namecheap.com` → subdomain of `namecheap.com` → **aligned** (relaxed mode)
+- Since at least one mechanism passed *and* aligned, DMARC passes
+- Policy is `p=REJECT` — meaning if this had failed, Google would have blocked it outright, not just flagged it
+
+Header analyzer:
+<img width="877" height="411" alt="image" src="https://github.com/user-attachments/assets/4542f1de-e5e9-4969-8f7e-899d9efc6432" />
+
+**Result:** DMARC PASS — full authentication chain is legitimate and aligned.
+
+## Conclusion
+**Sender authentication: PASS.** SPF, DKIM, and DMARC all pass and align
+correctly under a strict `p=REJECT` policy — confirming this message was
+genuinely sent through Namecheap's and SendGrid's authorized infrastructure,
+and headers/body were not altered in transit.
+
+Authentication passing does **not** by itself confirm the email is safe —
+it only confirms sender identity and message integrity. Before closing
+this as normal, additional checks would be needed:
+- URL reputation check on the "Renew Now" link destination to confirm it resolves to Namecheap's real renewal flow
+- Confirm no prior abuse reports against the sending IP (149.72.142.11)
+  or SendGrid subuser
+- Cross-reference against known phishing campaigns impersonating domain
+  registrars
+
+## SOC Action
+Authentication checks are clean. Escalate for URL/link verification
+before final closure. If link destination and sender reputation are
+also clean, close as false positive. Do not close solely on
+SPF/DKIM/DMARC pass.
