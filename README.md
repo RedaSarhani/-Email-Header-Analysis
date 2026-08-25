@@ -72,7 +72,6 @@ dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=namecheap.com
 - Since at least one mechanism passed *and* aligned, DMARC passes
 - Policy is `p=REJECT` — meaning if this had failed, Google would have blocked it outright, not just flagged it
 
-Header analyzer:
 <img width="877" height="411" alt="image" src="https://github.com/user-attachments/assets/4542f1de-e5e9-4969-8f7e-899d9efc6432" />
 
 **Result:** DMARC PASS — full authentication chain is legitimate and aligned.
